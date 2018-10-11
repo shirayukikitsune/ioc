@@ -13,6 +13,22 @@ namespace kitsune::ioc {
         Primary,
     };
 
+    template <typename Implementation, InjectionFlags flags>
+    class InjectionHelper {
+    public:
+        InjectionHelper() {
+            Injector::getInstance().addServicePointer(Implementation::getClassName(), new Implementation);
+        }
+    };
+
+    template <typename Implementation>
+    class InjectionHelper<Implementation, InjectionFlags::Primary> {
+    public:
+        InjectionHelper() {
+            Injector::getInstance().addPrimaryServicePointer(Implementation::getClassName(), new Implementation);
+        }
+    };
+
     template <typename T>
     class ServiceBase {
 
@@ -22,23 +38,27 @@ namespace kitsune::ioc {
             auto Signature = std::string_view(__FUNCSIG__);
             return Signature;
         }
-#elif defined __PRETTY_FUNCTION__
-        static constexpr std::string_view getName() {
+
+        static std::string getClassName() {
+            return std::string(getName().data(), getName().length());
+        }
+#elif defined __GNUC__
+        static std::string getName() {
             auto Signature = std::string_view(__PRETTY_FUNCTION__);
             return Signature;
+        }
+
+        static std::string getClassName() {
+            return getName();
         }
 #else
 #error "This compiler is not supported"
 #endif
 
-        static std::string getClassName() {
-            return std::string(getName().data(), getName().length());
-        }
-
     };
 
-    template <typename T, InjectionFlags injectionFlags = InjectionFlags::None>
-    class Service : public T {
+    template <typename ServiceType, typename ServiceBaseType, InjectionFlags injectionFlags = InjectionFlags::None>
+    class Service : public ServiceBaseType {
     private:
         template<InjectionFlags F = injectionFlags>
         typename std::enable_if_t<F == InjectionFlags::None> addService() {
@@ -60,9 +80,10 @@ namespace kitsune::ioc {
             Injector::getInstance().removePrimaryService(this->getClassName(), this);
         }
 
+        inline static InjectionHelper<ServiceType, injectionFlags> t;
+
     public:
         Service() {
-            addService();
         }
 
         virtual ~Service() {

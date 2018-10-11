@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <exception>
 #include <list>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -28,12 +29,25 @@ namespace kitsune::ioc {
 
     public:
         static Injector& getInstance() {
-            static Injector instance;
-            return instance;
+            static Injector *instance = new Injector;
+            return *instance;
         }
 
         template <typename T>
-        void addPrimaryService(const std::string &Name, T* Service) {
+        void addPrimaryService(const std::string &Name, std::shared_ptr<T> && Service) {
+            auto ServiceIterator = PrimaryServiceRepository.find(T::getClassName());
+
+            if (ServiceIterator != PrimaryServiceRepository.end()) {
+                throw std::logic_error(getPrimaryRegisteredMessage<T>().data());
+            }
+
+            addService(Name, Service);
+
+            PrimaryServiceRepository[T::getClassName()] = std::move(Service);
+        }
+
+        template <typename T>
+        void addPrimaryServicePointer(const std::string &Name, T* Service) {
             auto ServiceIterator = PrimaryServiceRepository.find(T::getClassName());
 
             if (ServiceIterator != PrimaryServiceRepository.end()) {
@@ -69,7 +83,6 @@ namespace kitsune::ioc {
 
             for (auto i = ServiceIteratorRange.first, End = ServiceIteratorRange.second; i != End; ++i) {
                 if (i->second.get() == Service) {
-                    i->second.detach();
                     ServiceRepository.erase(i);
                     return;
                 }
@@ -144,7 +157,7 @@ namespace kitsune::ioc {
 
         explicit operator bool() const noexcept
         {
-            return InjectedService.expired();
+            return !InjectedService.expired();
         }
     };
 
