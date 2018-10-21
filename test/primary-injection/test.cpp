@@ -34,7 +34,7 @@ go_bandit([]() {
         it("should inject the primary service", []() {
             kitsune::ioc::Injectable<TestService> testService;
 
-            AssertThat((bool)testService, Equals(false));
+            AssertThat((bool)testService, Equals(true));
             AssertThat(testService->testFunction(), Equals(0x74657374));
         });
     });
