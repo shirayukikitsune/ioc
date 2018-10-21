@@ -7,5 +7,5 @@ add_test(
     NAME
         primary-injection-test
     COMMAND
-        primary-injection-test --reporter=crash
+        primary-injection-test --reporter=spec
 )
