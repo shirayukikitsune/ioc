@@ -12,7 +12,7 @@ build:
 
 before_build:
 - git submodule update --init --recursive --checkout
-- cmake -H. -Bbuild -G "%CMAKE_GENERATOR%"
+- cmake -H. -Bbuild -G "%CMAKE_GENERATOR%" -DEnableTest=ON
 
 build_script:
 - cmake --build build
