@@ -29,6 +29,9 @@ public:
     }
 };
 
+class NotInjectedService : public kitsune::ioc::ServiceBase<NotInjectedService> {
+};
+
 go_bandit([]() {
     describe("primary service injection", []() {
         it("should inject the primary service", []() {
@@ -36,6 +39,30 @@ go_bandit([]() {
 
             AssertThat((bool)testService, Equals(true));
             AssertThat(testService->testFunction(), Equals(0x74657374));
+        });
+
+        it("should be able to retrieve both services", []() {
+            auto services = kitsune::ioc::Injector::getInstance().findServices<TestService>();
+
+            AssertThat(services.empty(), Equals(false));
+            AssertThat(services.size(), Equals(2));
+
+            for (auto &servicePtr : services) {
+                auto &service = servicePtr.lock();
+                AssertThat((bool)service, Equals(true));
+                if (std::dynamic_pointer_cast<OtherTestServiceImplementation>(service)) {
+                    AssertThat(service->testFunction(), Equals(0x6661696c));
+                }
+                else {
+                    AssertThat(service->testFunction(), Equals(0x74657374));
+                }
+            }
+        });
+
+        it("should not inject wrong classes", []() {
+            kitsune::ioc::Injectable<NotInjectedService> testService;
+
+            AssertThat((bool)testService, Equals(false));
         });
     });
 });
