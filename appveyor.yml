@@ -16,4 +16,6 @@ before_build:
 
 build_script:
 - cmake --build build
+
+test_script:
 - ctest -V
