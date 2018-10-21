@@ -6,6 +6,12 @@
 #include <string_view>
 #include <type_traits>
 
+#ifdef _MSC_VER
+#define KITSUNE_INJECTABLE(Base, Type, Helper)
+#else
+#define KITSUNE_INJECTABLE(Base, Type, Helper) static inline ::kitsune::ioc::InjectionHelper Helper = ::kitsune::ioc::InjectionHelper([]() noexcept { ::kitsune::ioc::Injector< Base >::getInstance().addServicePointer(new Type ); });
+#endif
+
 namespace kitsune::ioc {
 
     enum struct InjectionFlags {
@@ -13,19 +19,10 @@ namespace kitsune::ioc {
         Primary,
     };
 
-    template <typename Implementation, InjectionFlags flags>
     class InjectionHelper {
     public:
-        InjectionHelper() {
-            Injector::getInstance().addServicePointer(Implementation::getClassName(), new Implementation);
-        }
-    };
-
-    template <typename Implementation>
-    class InjectionHelper<Implementation, InjectionFlags::Primary> {
-    public:
-        InjectionHelper() {
-            Injector::getInstance().addPrimaryServicePointer(Implementation::getClassName(), new Implementation);
+        explicit InjectionHelper(const std::function<void()> &callback) noexcept {
+            callback();
         }
     };
 
@@ -44,7 +41,7 @@ namespace kitsune::ioc {
         }
 #elif defined __GNUC__
         static std::string getName() {
-            auto Signature = std::string_view(__PRETTY_FUNCTION__);
+            auto Signature = std::string(__PRETTY_FUNCTION__);
             return Signature;
         }
 
@@ -52,7 +49,10 @@ namespace kitsune::ioc {
             return getName();
         }
 #else
-#error "This compiler is not supported"
+#warning "Unable to deduce class name"
+
+        static std::string getName() = 0;
+        static std::string getClassName() = 0;
 #endif
 
     };
@@ -62,34 +62,34 @@ namespace kitsune::ioc {
     private:
         template<InjectionFlags F = injectionFlags>
         typename std::enable_if_t<F == InjectionFlags::None> addService() {
-            Injector::getInstance().addServicePointer(this->getClassName(), this);
+            Injector<ServiceBaseType>::getInstance().addServicePointer(this);
         }
 
         template<InjectionFlags F = injectionFlags>
         typename std::enable_if_t<F == InjectionFlags::Primary> addService() {
-            Injector::getInstance().addPrimaryService(this->getClassName(), this);
+            Injector<ServiceBaseType>::getInstance().addPrimaryService(this);
         }
 
         template<InjectionFlags F = injectionFlags>
         typename std::enable_if_t<F == InjectionFlags::None> removeService() {
-            Injector::getInstance().removeService(this->getClassName(), this);
+            Injector<ServiceBaseType>::getInstance().removeService(this);
         }
 
         template<InjectionFlags F = injectionFlags>
         typename std::enable_if_t<F == InjectionFlags::Primary> removeService() {
-            Injector::getInstance().removePrimaryService(this->getClassName(), this);
+            Injector<ServiceBaseType>::getInstance().removePrimaryService(this);
         }
 
-        inline static InjectionHelper<ServiceType, injectionFlags> t;
+        static inline const InjectionHelper t = InjectionHelper([]() {
+            Injector<ServiceBaseType>::getInstance().addServicePointer(new ServiceType);
+        });
 
     public:
-        Service() {
-        }
+        Service() = default;
 
         virtual ~Service() {
             removeService();
         }
 
     };
-
 }

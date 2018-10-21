@@ -12,98 +12,79 @@ namespace kitsune::ioc {
     ///! Provides access to the managed services
     /// This class is the core of this IoC implementation.
     /// Services will register themselves here
+    template <class BaseServiceType>
     class Injector {
     private:
-        typedef std::unordered_multimap<std::string, std::shared_ptr<void>> RepositoryType;
+        typedef std::vector<std::shared_ptr<BaseServiceType>> RepositoryType;
 
-        std::unordered_map<std::string, std::shared_ptr<void>> PrimaryServiceRepository;
+        std::shared_ptr<BaseServiceType> PrimaryService;
         RepositoryType ServiceRepository;
 
-        Injector() {}
+        Injector() = default;
         Injector(const Injector&) = delete;
 
-        template <typename T>
         std::string getPrimaryRegisteredMessage() {
-            return std::string("Service ") + T::getClassName() + std::string(" already registered as primary");
+            return std::string("Service ") + BaseServiceType::getClassName() + std::string(" already registered as primary");
         }
 
     public:
         static Injector& getInstance() {
-            static Injector *instance = new Injector;
+            static auto instance = new Injector;
             return *instance;
         }
 
-        template <typename T>
-        void addPrimaryService(const std::string &Name, std::shared_ptr<T> && Service) {
-            auto ServiceIterator = PrimaryServiceRepository.find(T::getClassName());
-
-            if (ServiceIterator != PrimaryServiceRepository.end()) {
-                throw std::logic_error(getPrimaryRegisteredMessage<T>().data());
+        void addPrimaryService(std::shared_ptr<BaseServiceType> && Service) {
+            if (PrimaryService) {
+                throw std::logic_error(getPrimaryRegisteredMessage().data());
             }
 
-            addService(Name, Service);
+            addService(Service);
 
-            PrimaryServiceRepository[T::getClassName()] = std::move(Service);
+            PrimaryService = std::move(Service);
         }
 
-        template <typename T>
-        void addPrimaryServicePointer(const std::string &Name, T* Service) {
-            auto ServiceIterator = PrimaryServiceRepository.find(T::getClassName());
+        void addPrimaryServicePointer(BaseServiceType* Service) {
+            auto Pointer = std::shared_ptr<BaseServiceType>(Service);
 
-            if (ServiceIterator != PrimaryServiceRepository.end()) {
-                throw std::logic_error(getPrimaryRegisteredMessage<T>().data());
-            }
-
-            auto Pointer = std::shared_ptr<T>(Service);
-
-            addService(Name, Pointer);
-
-            PrimaryServiceRepository[T::getClassName()] = std::move(Pointer);
+            addPrimaryService(std::move(Pointer));
         }
 
-        template <typename T>
-        void addService(const std::string &Name, std::shared_ptr<T> Service) {
-            ServiceRepository.emplace(Name, Service);
+        void addService(std::shared_ptr<BaseServiceType> Service) {
+            ServiceRepository.emplace_back(Service);
         }
 
-        template <typename T>
-        void addServicePointer(const std::string &Name, T* Service) {
-            ServiceRepository.emplace(Name, std::shared_ptr<T>(Service));
+        void addServicePointer(BaseServiceType* Service) {
+            ServiceRepository.emplace_back(std::shared_ptr<BaseServiceType>(Service));
         }
 
-        template <typename T>
-        void removePrimaryService(const std::string &Name, T* Service) {
-            PrimaryServiceRepository.erase(Name);
-            removeService(Name, Service);
+        void removePrimaryService(BaseServiceType* Service) {
+            PrimaryService.reset();
+            removeService(Service);
         }
 
-        template <typename T>
-        void removeService(const std::string &Name, T* Service) {
-            auto ServiceIteratorRange = ServiceRepository.equal_range(T::getClassName());
-
-            for (auto i = ServiceIteratorRange.first, End = ServiceIteratorRange.second; i != End; ++i) {
-                if (i->second.get() == Service) {
+        void removeService(BaseServiceType* Service) {
+            for (auto i = ServiceRepository.begin(), End = ServiceRepository.end(); i != End; ++i) {
+                if (i->get() == Service) {
                     ServiceRepository.erase(i);
                     return;
                 }
             }
         }
 
-        template <typename BaseServiceType, typename ImplementationType = BaseServiceType>
+        template <typename ImplementationType = BaseServiceType>
         std::weak_ptr<ImplementationType> findService() {
-            auto ServiceIterator = PrimaryServiceRepository.find(std::string(BaseServiceType::getClassName()));
+            auto ImplementationPointer = std::dynamic_pointer_cast<ImplementationType, BaseServiceType>(PrimaryService);
 
-            if (ServiceIterator != PrimaryServiceRepository.end()) {
-                auto Base = std::reinterpret_pointer_cast<BaseServiceType, void>(ServiceIterator->second);
-                return std::dynamic_pointer_cast<ImplementationType, BaseServiceType>(Base);
+            if (ImplementationPointer) {
+                return ImplementationPointer;
             }
 
-            return findAnyService<BaseServiceType, ImplementationType>();
+            return findAnyService<ImplementationType>();
         }
 
-        template <typename BaseServiceType, typename ImplementationType = BaseServiceType>
+        template <typename ImplementationType = BaseServiceType>
         std::weak_ptr<ImplementationType> findAnyService() {
-            auto Services = findServices<BaseServiceType, ImplementationType>();
+            auto Services = findServices<ImplementationType>();
 
             if (Services.size() > 0) {
                 return Services.front();
@@ -112,19 +93,17 @@ namespace kitsune::ioc {
             return std::weak_ptr<ImplementationType>();
         }
 
-        template <typename BaseServiceType, typename ImplementationType = BaseServiceType>
+        template <typename ImplementationType = BaseServiceType>
         std::list<std::weak_ptr<ImplementationType>> findServices() {
-            auto ServiceIteratorRange = ServiceRepository.equal_range(BaseServiceType::getClassName());
-
             std::list<std::weak_ptr<ImplementationType>> Services;
 
-            for (auto i = ServiceIteratorRange.first, End = ServiceIteratorRange.second; i != End; ++i) {
-                auto Pointer = std::dynamic_pointer_cast<ImplementationType, BaseServiceType>(std::reinterpret_pointer_cast<BaseServiceType, void>(i->second));
+            std::for_each(ServiceRepository.begin(), ServiceRepository.end(), [&Services](auto i) {
+                auto Pointer = std::dynamic_pointer_cast<ImplementationType, BaseServiceType>(i);
 
                 if (Pointer) {
                     Services.emplace_back(Pointer);
                 }
-            }
+            });
 
             return Services;
         }
@@ -140,7 +119,7 @@ namespace kitsune::ioc {
         }
 
         void reset() {
-            InjectedService = Injector::getInstance().findService<T, U>();
+            InjectedService = Injector<T>::getInstance().template findService<U>();
         }
 
         template<class _T = U,

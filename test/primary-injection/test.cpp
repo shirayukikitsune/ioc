@@ -1,7 +1,7 @@
 #include "bandit/bandit.h"
 
-#include "kitsune/ioc/Injector.h"
 #include "kitsune/ioc/Service.h"
+#include "kitsune/ioc/Injector.h"
 
 #include <iostream>
 #include <string>
@@ -13,13 +13,8 @@ using namespace bandit;
 class TestService : public kitsune::ioc::ServiceBase<TestService> {
 public:
     virtual int testFunction() = 0;
-};
 
-class OtherTestServiceImplementation : public kitsune::ioc::Service<OtherTestServiceImplementation, TestService> {
-public:
-    int testFunction() override {
-        return 0x6661696c;
-    }
+    virtual ~TestService() = default;
 };
 
 class TestServiceImplementation : public kitsune::ioc::Service<TestServiceImplementation, TestService, kitsune::ioc::InjectionFlags::Primary> {
@@ -28,6 +23,17 @@ public:
         return 0x74657374;
     }
 };
+
+KITSUNE_INJECTABLE(TestService, TestServiceImplementation, testServiceInjector)
+
+class OtherTestServiceImplementation : public kitsune::ioc::Service<OtherTestServiceImplementation, TestService> {
+public:
+    int testFunction() override {
+        return 0x6661696c;
+    }
+};
+
+KITSUNE_INJECTABLE(TestService, OtherTestServiceImplementation, otherTestServiceInjector)
 
 class NotInjectedService : public kitsune::ioc::ServiceBase<NotInjectedService> {
 };
@@ -42,13 +48,13 @@ go_bandit([]() {
         });
 
         it("should be able to retrieve both services", []() {
-            auto services = kitsune::ioc::Injector::getInstance().findServices<TestService>();
+            auto services = kitsune::ioc::Injector<TestService>::getInstance().findServices();
 
             AssertThat(services.empty(), Equals(false));
             AssertThat(services.size(), Equals(2));
 
             for (auto &servicePtr : services) {
-                auto &service = servicePtr.lock();
+                const auto &service = servicePtr.lock();
                 AssertThat((bool)service, Equals(true));
                 if (std::dynamic_pointer_cast<OtherTestServiceImplementation>(service)) {
                     AssertThat(service->testFunction(), Equals(0x6661696c));
