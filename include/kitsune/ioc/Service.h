@@ -9,7 +9,7 @@
 #ifdef _MSC_VER
 #define KITSUNE_INJECTABLE(Base, Type, Helper)
 #else
-#define KITSUNE_INJECTABLE(Base, Type, Helper) static inline ::kitsune::ioc::InjectionHelper Helper = ::kitsune::ioc::InjectionHelper([]() noexcept { ::kitsune::ioc::Injector< Base >::getInstance().addServicePointer(new Type ); });
+#define KITSUNE_INJECTABLE(Base, Type, Helper) static inline ::kitsune::ioc::InjectionHelper< Type , Base > Helper = ::kitsune::ioc::InjectionHelper< Type , Base >();
 #endif
 
 namespace kitsune::ioc {
@@ -19,10 +19,11 @@ namespace kitsune::ioc {
         Primary,
     };
 
+    template <typename Implementation, typename BaseType>
     class InjectionHelper {
     public:
-        explicit InjectionHelper(const std::function<void()> &callback) noexcept {
-            callback();
+        InjectionHelper() noexcept {
+            Injector<BaseType>::getInstance().addServicePointer(new Implementation);
         }
     };
 
@@ -80,9 +81,7 @@ namespace kitsune::ioc {
             Injector<ServiceBaseType>::getInstance().removePrimaryService(this);
         }
 
-        static inline const InjectionHelper t = InjectionHelper([]() {
-            Injector<ServiceBaseType>::getInstance().addServicePointer(new ServiceType);
-        });
+        static inline const InjectionHelper<ServiceType, ServiceBaseType> t = InjectionHelper<ServiceType, ServiceBaseType>();
 
     public:
         Service() = default;
