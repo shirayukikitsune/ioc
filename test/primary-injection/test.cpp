@@ -1,7 +1,7 @@
 #include "bandit/bandit.h"
 
-#include "kitsune/ioc/Service.h"
-#include "kitsune/ioc/Injector.h"
+#include "kitsune/ioc/service"
+#include "kitsune/ioc/injector"
 
 #include <iostream>
 #include <string>

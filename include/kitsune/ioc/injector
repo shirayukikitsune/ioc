@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 namespace kitsune::ioc {
-    
+
     ///! Provides access to the managed services
     /// This class is the core of this IoC implementation.
     /// Services will register themselves here
@@ -20,7 +20,7 @@ namespace kitsune::ioc {
         std::shared_ptr<BaseServiceType> PrimaryService;
         RepositoryType ServiceRepository;
 
-        Injector() = default;
+        Injector() noexcept = default;
         Injector(const Injector&) = delete;
 
         std::string getPrimaryRegisteredMessage() {
@@ -72,7 +72,7 @@ namespace kitsune::ioc {
         }
 
         template <typename ImplementationType = BaseServiceType>
-        std::weak_ptr<ImplementationType> findService() {
+        std::weak_ptr<ImplementationType> findService() noexcept {
             auto ImplementationPointer = std::dynamic_pointer_cast<ImplementationType, BaseServiceType>(PrimaryService);
 
             if (ImplementationPointer) {
@@ -114,11 +114,11 @@ namespace kitsune::ioc {
         std::weak_ptr<U> InjectedService;
 
     public:
-        Injectable() {
+        Injectable() noexcept {
             reset();
         }
 
-        void reset() {
+        void reset() noexcept {
             InjectedService = Injector<T>::getInstance().template findService<U>();
         }
 

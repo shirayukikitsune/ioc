@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Injector.h"
+#include "injector"
 #include <memory>
 
 #include <string_view>
@@ -84,7 +84,7 @@ namespace kitsune::ioc {
         static inline const InjectionHelper<ServiceType, ServiceBaseType> t = InjectionHelper<ServiceType, ServiceBaseType>();
 
     public:
-        Service() = default;
+        Service() noexcept = default;
 
         virtual ~Service() {
             removeService();
