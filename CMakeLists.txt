@@ -5,11 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED on)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-option(EnableTest "Enable unit testing" ON)
-
 add_subdirectory(include)
 
-if (EnableTest)
-    enable_testing()
-    add_subdirectory(test)
+if ("${CMAKE_SOURCE_DIR}" EQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+    option(EnableTest "Enable unit testing" ON)
+
+    if (EnableTest)
+        enable_testing()
+        add_subdirectory(test)
+    endif()
 endif()
